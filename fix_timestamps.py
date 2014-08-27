@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+import calendar
 import datetime
 import json
 import os
@@ -81,13 +82,13 @@ def main(argv):
           orientation = 8 if acc_data[1] < 0 else 6
 
       dir_timestamp = DIR_TIMESTAMP_RE.search(abspath)
-      ts = datetime.datetime(int(dir_timestamp.group('year')),
-                             int(dir_timestamp.group('month')),
-                             int(dir_timestamp.group('day')),
-                             int(dir_timestamp.group('hour')),
-                             int(dir_timestamp.group('min')),
-                             int(dir_timestamp.group('sec')))
-      ts += datetime.timedelta(hours=offset)
+      utc_ts = datetime.datetime(int(dir_timestamp.group('year')),
+                                 int(dir_timestamp.group('month')),
+                                 int(dir_timestamp.group('day')),
+                                 int(dir_timestamp.group('hour')),
+                                 int(dir_timestamp.group('min')),
+                                 int(dir_timestamp.group('sec')))
+      local_ts = utc_ts + datetime.timedelta(hours=offset)
 
       metadata = pyexiv2.ImageMetadata(abspath)
       try:
@@ -99,10 +100,12 @@ def main(argv):
           metadata['Exif.Image.Orientation'] = orientation
           should_write = True
         if 'Exif.Image.DateTime' not in metadata:
-          metadata['Exif.Image.DateTime'] = ts
+          metadata['Exif.Image.DateTime'] = local_ts
           should_write = True
         if should_write:
           metadata.write()
+          timestamp = calendar.timegm(utc_ts.timetuple())
+          os.utime(abspath, (timestamp, timestamp))
       except IOError:
         print 'Problem modifying EXIF data for %s.  File corrupt?' % filename
 
